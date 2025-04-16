@@ -1,16 +1,20 @@
--- [[ FPS Boost GUI Script with Toggle Button ]] --
+-- FPS Boost Ultimate by ChatGPT
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local Stats = game:GetService("Stats")
 local LocalPlayer = Players.LocalPlayer
 
--- สร้าง ScreenGui หลัก
+-- GUI Setup
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 screenGui.Name = "FPSBoostGui"
 screenGui.ResetOnSpawn = false
 
--- [[ ปุ่ม Toggle GUI ]] --
+-- Toggle Button
 local toggleButton = Instance.new("TextButton", screenGui)
-toggleButton.Size = UDim2.new(0, 100, 0, 30)
+toggleButton.Size = UDim2.new(0, 120, 0, 30)
 toggleButton.Position = UDim2.new(0, 10, 0, 10)
 toggleButton.Text = "Show FPS Boost"
 toggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -19,10 +23,20 @@ toggleButton.Font = Enum.Font.GothamBold
 toggleButton.TextSize = 14
 toggleButton.BorderSizePixel = 0
 
--- [[ GUI หลักของ FPS Boost ]] --
-local frame = Instance.new("Frame")
-frame.Parent = screenGui
-frame.Size = UDim2.new(0, 200, 0, 160)
+-- FPS + Memory
+local fpsLabel = Instance.new("TextLabel", screenGui)
+fpsLabel.Size = UDim2.new(0, 150, 0, 25)
+fpsLabel.Position = UDim2.new(0, 140, 0, 10)
+fpsLabel.BackgroundTransparency = 0.5
+fpsLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+fpsLabel.TextColor3 = Color3.new(1, 1, 1)
+fpsLabel.Font = Enum.Font.Gotham
+fpsLabel.TextSize = 14
+fpsLabel.Text = "FPS: 0 | Mem: 0MB"
+
+-- GUI Frame
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 220, 0, 220)
 frame.Position = UDim2.new(0, 20, 0, 50)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.BorderSizePixel = 0
@@ -31,96 +45,127 @@ frame.Active = true
 frame.Draggable = true
 
 local title = Instance.new("TextLabel", frame)
-title.Text = "FPS Boost Level"
+title.Text = "FPS Boost"
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 18
 
--- [[ ปุ่มเลือกระดับการลบ ]] --
+-- Buttons
+local selectedLevel = "Low"
 local levels = {"Low", "Mid", "High"}
 local buttons = {}
-local selectedLevel = "Low"
 
 for i, level in ipairs(levels) do
-    local button = Instance.new("TextButton", frame)
-    button.Size = UDim2.new(1, -20, 0, 30)
-    button.Position = UDim2.new(0, 10, 0, 30 + (i - 1) * 35)
-    button.Text = level
-    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    button.TextColor3 = Color3.new(1, 1, 1)
-    button.Font = Enum.Font.Gotham
-    button.TextSize = 16
+	local button = Instance.new("TextButton", frame)
+	button.Size = UDim2.new(1, -20, 0, 30)
+	button.Position = UDim2.new(0, 10, 0, 30 + (i - 1) * 35)
+	button.Text = level
+	button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Font = Enum.Font.Gotham
+	button.TextSize = 16
 
-    buttons[level] = button
+	buttons[level] = button
 
-    button.MouseButton1Click:Connect(function()
-        selectedLevel = level
-        updateParticles() -- ลบตามระดับใหม่
-    end)
+	button.MouseButton1Click:Connect(function()
+		selectedLevel = level
+		updateOptimization()
+	end)
 end
 
--- [[ ฟังก์ชันลบ Particle และสิ่งฟุ่มเฟือย ]] --
-local function shouldRemove(instance)
-    if instance:IsA("ParticleEmitter") or instance:IsA("Trail") or instance:IsA("Smoke") or instance:IsA("Fire") then
-        if selectedLevel == "Low" then
-            return instance.Lifetime.Max > 2
-        elseif selectedLevel == "Mid" then
-            return true
-        elseif selectedLevel == "High" then
-            return true
-        end
-    elseif selectedLevel == "High" then
-        if instance:IsA("Explosion") or instance:IsA("Sparkles") or instance:IsA("Beam") or
-           instance:IsA("Decal") or instance:IsA("SurfaceGui") or
-           instance:IsA("PointLight") or instance:IsA("SpotLight") or instance:IsA("SurfaceLight") then
-            return true
-        end
-    end
-    return false
-end
+-- Auto Optimize Button
+local autoButton = Instance.new("TextButton", frame)
+autoButton.Size = UDim2.new(1, -20, 0, 30)
+autoButton.Position = UDim2.new(0, 10, 0, 30 + #levels * 35)
+autoButton.Text = "Auto Optimize"
+autoButton.BackgroundColor3 = Color3.fromRGB(100, 40, 40)
+autoButton.TextColor3 = Color3.new(1, 1, 1)
+autoButton.Font = Enum.Font.GothamBold
+autoButton.TextSize = 16
 
-local function cleanParticles(parent)
-    for _, obj in ipairs(parent:GetDescendants()) do
-        -- ตรวจจับและลบโดยตรง
-        if shouldRemove(obj) then
-            pcall(function() obj:Destroy() end)
-        end
-
-        -- ในระดับ High: ล้าง Particle/Effect ที่อยู่ใน BasePart โดยตรง
-        if selectedLevel == "High" and obj:IsA("BasePart") then
-            for _, child in ipairs(obj:GetChildren()) do
-                if child:IsA("ParticleEmitter") or child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Sparkles") or
-                   child:IsA("Decal") or child:IsA("SurfaceGui") or
-                   child:IsA("PointLight") or child:IsA("SpotLight") or child:IsA("SurfaceLight") then
-                    pcall(function() child:Destroy() end)
-                end
-            end
-        end
-    end
-end
-
-local function cleanCharacterParticles()
-    local char = LocalPlayer.Character
-    if char then
-        cleanParticles(char)
-    end
-end
-
-function updateParticles()
-    cleanParticles(game.Workspace)
-    cleanCharacterParticles()
-end
-
--- [[ ปุ่ม Toggle แสดง/ซ่อน GUI ]] --
-toggleButton.MouseButton1Click:Connect(function()
-    frame.Visible = not frame.Visible
-    toggleButton.Text = frame.Visible and "Hide FPS Boost" or "Show FPS Boost"
+autoButton.MouseButton1Click:Connect(function()
+	selectedLevel = "High"
+	updateOptimization()
 end)
 
--- [[ ลบ Particle ทุก ๆ 10 วิ ตามระดับที่เลือก ]] --
+-- Toggle GUI
+toggleButton.MouseButton1Click:Connect(function()
+	frame.Visible = not frame.Visible
+	toggleButton.Text = frame.Visible and "Hide FPS Boost" or "Show FPS Boost"
+end)
+
+-- FPS & Memory Update
+local fps, frames, memTime = 0, 0, 0
+RunService.RenderStepped:Connect(function(dt)
+	frames += 1
+	fps += dt
+	memTime += dt
+	if fps >= 1 then
+		local mb = math.floor(Stats:GetTotalMemoryUsageMb())
+		fpsLabel.Text = "FPS: " .. tostring(math.floor(frames / fps)) .. " | Mem: " .. mb .. "MB"
+		fps, frames = 0, 0
+	end
+end)
+
+-- Optimization Functions
+local function shouldRemove(obj)
+	if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or
+	   obj:IsA("Fire") or obj:IsA("Explosion") or obj:IsA("Beam") or obj:IsA("Sparkles") then
+		return true
+	end
+
+	if selectedLevel ~= "Low" then
+		if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") or
+		   obj:IsA("MaterialVariant") or obj:IsA("SurfaceGui") or
+		   obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function cleanDescendants(parent)
+	for _, obj in ipairs(parent:GetDescendants()) do
+		if shouldRemove(obj) then
+			pcall(function() obj:Destroy() end)
+		end
+	end
+end
+
+local function cleanLighting()
+	for _, v in pairs(Lighting:GetChildren()) do
+		if v:IsA("BlurEffect") or v:IsA("Atmosphere") or v:IsA("ColorCorrectionEffect")
+		or v:IsA("SunRaysEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("BloomEffect") then
+			pcall(function() v:Destroy() end)
+		end
+	end
+end
+
+local function setDrawDistance()
+	if selectedLevel == "Low" then
+		Workspace.StreamingEnabled = false
+	elseif selectedLevel == "Mid" then
+		Workspace.StreamingEnabled = true
+		Workspace.StreamingMinRadius = 128
+	elseif selectedLevel == "High" then
+		Workspace.StreamingEnabled = true
+		Workspace.StreamingMinRadius = 64
+		Workspace.StreamingPauseMode = Enum.StreamingPauseMode.ClientPhysicsPause
+	end
+end
+
+function updateOptimization()
+	cleanDescendants(Workspace)
+	cleanDescendants(LocalPlayer.Character or {})
+	cleanLighting()
+	setDrawDistance()
+end
+
+-- Loop every 10s
 while true do
-    task.wait(10)
-    updateParticles()
+	task.wait(10)
+	updateOptimization()
 end
