@@ -96,6 +96,43 @@ local levels = {"Low", "Mid", "High", "Maximum"}
 local selectedLevel = "Low"
 local buttons = {}
 
+local function clean(obj)
+	if obj and obj:IsA("BasePart") then obj.Material = Enum.Material.SmoothPlastic obj.Reflectance = 0 obj.CastShadow = false end
+end
+
+local function removeIf(obj, condition)
+	if condition and obj and obj.Destroy then pcall(function() obj:Destroy() end) end
+end
+
+function updateOptimization()
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if selectedLevel == "Low" then
+			removeIf(obj, obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") and obj.Lifetime.Max > 2)
+		elseif selectedLevel == "Mid" then
+			removeIf(obj, obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") or obj:IsA("PointLight") or obj:IsA("Decal"))
+		elseif selectedLevel == "High" then
+			removeIf(obj, obj:IsA("Texture") or obj:IsA("Sound") or obj:IsA("ForceField") or obj:IsA("Explosion") or obj:IsA("Sparkles") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") or obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire"))
+			clean(obj)
+		elseif selectedLevel == "Maximum" then
+			removeIf(obj, obj:IsA("Texture") or obj:IsA("Decal") or obj:IsA("Sound") or obj:IsA("ForceField") or obj:IsA("Explosion") or obj:IsA("Sparkles") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") or obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") or obj:IsA("PointLight"))
+			removeIf(obj, not obj:IsA("Camera") and not obj:IsA("Humanoid") and not obj:IsA("HumanoidRootPart") and not obj:IsA("Script") and not obj:IsA("LocalScript") and not obj:IsA("Player") and not obj:IsA("Tool") and not obj:IsA("Backpack") and not obj:IsA("ScreenGui"))
+			clean(obj)
+		end
+	end
+
+	-- Draw Distance Adjustment
+	if selectedLevel == "High" or selectedLevel == "Maximum" then
+		Lighting.FogEnd = 250
+		Workspace.StreamingEnabled = true
+		Workspace.StreamingTargetRadius = 128
+	elseif selectedLevel == "Mid" then
+		Lighting.FogEnd = 500
+	elseif selectedLevel == "Low" then
+		Lighting.FogEnd = 1000
+	end
+end
+
+-- Create Buttons
 for i, level in ipairs(levels) do
 	local btn = Instance.new("TextButton", frame)
 	btn.Size = UDim2.new(1, -30, 0, 30)
@@ -106,10 +143,10 @@ for i, level in ipairs(levels) do
 	btn.Font = Enum.Font.Gotham
 	btn.TextSize = 16
 	btn.AutoButtonColor = true
-	
+
 	local corner = Instance.new("UICorner", btn)
 	corner.CornerRadius = UDim.new(0, 6)
-	
+
 	btn.MouseButton1Click:Connect(function()
 		selectedLevel = level
 		statusLabel.Text = "Status: Optimizing ("..level..")"
@@ -117,7 +154,7 @@ for i, level in ipairs(levels) do
 		statusLabel.Text = "Status: Done ("..level..")"
 		notify("Optimization: "..level.." Success!", true)
 	end)
-	
+
 	buttons[level] = btn
 end
 
@@ -153,5 +190,3 @@ RunService.RenderStepped:Connect(function(dt)
 		fps, frames = 0, 0
 	end
 end)
-
--- Optimization Logic (updateOptimization) --> Will be defined in next block
