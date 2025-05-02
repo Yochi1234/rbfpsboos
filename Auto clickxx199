@@ -1,0 +1,79 @@
+local UIS = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local clickRemote = ReplicatedStorage:WaitForChild("ClickRemote")
+
+local frame = script.Parent
+local placeModeButton = frame:WaitForChild("PlaceModeButton")
+local runClickButton = frame:WaitForChild("RunClickButton")
+local clearButton = frame:WaitForChild("ClearButton")
+local loopCountBox = frame:WaitForChild("LoopCountBox")
+local delayBox = frame:WaitForChild("DelayBox")
+local stopButton = frame:WaitForChild("StopButton")
+local progressLabel = frame:WaitForChild("ProgressLabel")
+
+local clickPoints = {}
+local placingMode = false
+local isClicking = false
+
+-- วางจุดคลิก
+placeModeButton.MouseButton1Click:Connect(function()
+	placingMode = not placingMode
+	placeModeButton.Text = placingMode and "กำลังวางจุด..." or "วางจุดคลิก"
+end)
+
+-- เพิ่มปุ่มคลิกเมื่อแตะจอ
+UIS.InputBegan:Connect(function(input, processed)
+	if placingMode and input.UserInputType == Enum.UserInputType.Touch then
+		local pos = input.Position
+		local btn = Instance.new("TextButton")
+		btn.Text = tostring(#clickPoints + 1)
+		btn.Size = UDim2.new(0, 30, 0, 30)
+		btn.Position = UDim2.new(0, pos.X - 15, 0, pos.Y - 15)
+		btn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+		btn.TextSize = 14
+		btn.AutoButtonColor = false
+		btn.Parent = frame
+		table.insert(clickPoints, btn)
+	end
+end)
+
+-- เริ่มลูปคลิก
+runClickButton.MouseButton1Click:Connect(function()
+	if isClicking then return end
+	isClicking = true
+
+	local loopCount = tonumber(loopCountBox.Text) or 1
+	local delay = tonumber(delayBox.Text) or 0.3
+	local currentLoop = 0
+
+	progressLabel.Text = "กำลังทำงาน..."
+
+	while isClicking and (loopCount == 0 or currentLoop < loopCount) do
+		currentLoop += 1
+		progressLabel.Text = "รอบที่: " .. currentLoop .. (loopCount ~= 0 and "/" .. loopCount or "")
+		
+		for i, btn in ipairs(clickPoints) do
+			clickRemote:FireServer(i)
+			wait(delay)
+			if not isClicking then break end
+		end
+	end
+
+	isClicking = false
+	progressLabel.Text = "หยุดแล้ว"
+end)
+
+-- หยุดการทำงาน
+stopButton.MouseButton1Click:Connect(function()
+	isClicking = false
+	progressLabel.Text = "หยุดแล้ว"
+end)
+
+-- ล้างจุดคลิกทั้งหมด
+clearButton.MouseButton1Click:Connect(function()
+	for _, btn in ipairs(clickPoints) do
+		btn:Destroy()
+	end
+	clickPoints = {}
+end)
